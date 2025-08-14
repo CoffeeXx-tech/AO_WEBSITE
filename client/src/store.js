@@ -7,14 +7,15 @@ const BOOST_MULTIPLIER = 2;  // przyspieszenie x2
 export const useStore = create((set, get) => {
   const socket = io('https://ao-website.onrender.com');
 
+  // Obsługa powitania i snapshotu z serwera
   socket.on('welcome', ({ id, snapshot }) => {
-    // Twój własny gracz
-    const mePlayer = { id, x:0, y:0, z:0, yaw:0, spellPoints:0, currentSpell:null, isBoosted:false }
-    
+    // Twój własny gracz – startowa pozycja y=1 żeby koń był nad ziemią
+    const mePlayer = { id, x:0, y:1, z:0, yaw:0, spellPoints:0, currentSpell:null, isBoosted:false }
+
     // Łączymy snapshot z serwera z własnym graczem
     const allPlayers = new Map([
-      ...snapshot.map(p => [p.id, { ...p, spellPoints:0, currentSpell:null, isBoosted:false }]),
-      [id, mePlayer]
+      [id, mePlayer], // najpierw własny gracz
+      ...snapshot.map(p => [p.id, { ...p, spellPoints:0, currentSpell:null, isBoosted:false, y:1 }])
     ])
 
     set({ me: id, players: allPlayers })
@@ -23,7 +24,7 @@ export const useStore = create((set, get) => {
   socket.on('player_joined', ({ id }) => {
     set(state => {
       const players = new Map(state.players)
-      players.set(id, { id, x:0, y:0, z:0, yaw:0, spellPoints:0, currentSpell:null, isBoosted:false })
+      players.set(id, { id, x:0, y:1, z:0, yaw:0, spellPoints:0, currentSpell:null, isBoosted:false })
       return { players }
     })
   })
@@ -40,7 +41,7 @@ export const useStore = create((set, get) => {
     set({ 
       players: new Map(playersArray.map(p => [
         p.id, 
-        { ...p, spellPoints: p.spellPoints || 0, currentSpell: p.currentSpell || null, isBoosted: p.isBoosted || false }
+        { ...p, spellPoints: p.spellPoints || 0, currentSpell: p.currentSpell || null, isBoosted: p.isBoosted || false, y: p.y || 1 }
       ])) 
     })
   })
