@@ -1,5 +1,4 @@
-// App.jsx
-import { Canvas } from '@react-three/fiber';
+import { Canvas, useFrame } from '@react-three/fiber';
 import { useStore } from './store';
 import PlayerMovement from './PlayerMovement';
 import { useEffect } from 'react';
@@ -49,28 +48,10 @@ function KeyboardInput() {
   return null;
 }
 
-// --- Kamera podążająca za graczem ---
-function CameraFollow() {
-  const players = useStore((s) => s.players);
-  const me = useStore((s) => s.me);
-
-  useFrame(({ camera }) => {
-    const player = players.get(me);
-    if (!player) return;
-
-    camera.position.lerp(
-      { x: player.x, y: player.y + 5, z: player.z + 10 },
-      0.1
-    );
-    camera.lookAt(player.x, player.y + 1, player.z);
-  });
-
-  return null;
-}
-
 // --- App ---
 export default function App() {
   const players = useStore((s) => s.players);
+  const me = useStore((s) => s.me);
 
   // domyślny gracz jeśli backend jeszcze nie odpowiedział
   if (players.size === 0) {
@@ -93,7 +74,9 @@ export default function App() {
         ))}
 
         <PlayerMovement />
-        <CameraFollow />
+
+        {/* Kamera podążająca za graczem */}
+        <CameraFollowInline players={players} me={me} />
       </Canvas>
 
       <KeyboardInput />
@@ -101,3 +84,18 @@ export default function App() {
   );
 }
 
+// --- Kamera jako funkcja inline ---
+function CameraFollowInline({ players, me }) {
+  useFrame(({ camera }) => {
+    const player = players.get(me);
+    if (!player) return;
+
+    camera.position.lerp(
+      { x: player.x, y: player.y + 5, z: player.z + 10 },
+      0.1
+    );
+    camera.lookAt(player.x, player.y + 1, player.z);
+  });
+
+  return null;
+}
