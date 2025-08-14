@@ -1,24 +1,28 @@
-import { useFrame } from '@react-three/fiber'
-import { useStore } from './store'
+import { useFrame } from '@react-three/fiber';
+import { useStore } from './store';
 
 export default function PlayerMovement() {
-  const input = useStore((s) => s.input)
-  const me = useStore((s) => s.me)
-  const players = useStore((s) => s.players)
-  const BOOST_MULTIPLIER = useStore((s) => s.BOOST_MULTIPLIER || 2) // domyślnie x2
+  const input = useStore((s) => s.input);
+  const me = useStore((s) => s.me);
+  const players = useStore((s) => s.players);
+  const setPlayer = useStore((s) => s.setPlayer);
+  const BOOST_MULTIPLIER = useStore((s) => s.BOOST_MULTIPLIER);
 
-  useFrame((state, delta) => {
-    const p = players.get(me)
-    if (!p) return
+  useFrame(() => {
+    const p = players.get(me);
+    if (!p) return;
 
-    let speed = 0.1 // podstawowa prędkość
-    if (p.isBoosted) speed *= BOOST_MULTIPLIER
+    let speed = 0.1;
+    if (p.isBoosted) speed *= BOOST_MULTIPLIER;
 
-    if (input.left) p.x -= speed
-    if (input.right) p.x += speed
-    if (input.up) p.z -= speed
-    if (input.down) p.z += speed
-  })
+    const newPos = { ...p };
+    if (input.left) newPos.x -= speed;
+    if (input.right) newPos.x += speed;
+    if (input.up) newPos.z -= speed;
+    if (input.down) newPos.z += speed;
 
-  return null
+    setPlayer(me, newPos);
+  });
+
+  return null;
 }

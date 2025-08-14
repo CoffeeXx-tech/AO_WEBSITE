@@ -1,3 +1,4 @@
+// App.jsx
 import { Canvas, useFrame } from '@react-three/fiber';
 import { useStore } from './store';
 import PlayerMovement from './PlayerMovement';
@@ -28,12 +29,12 @@ function KeyboardInput() {
   const setInput = useStore((s) => s.setInput);
 
   useEffect(() => {
+    const keyMap = { w: 'up', s: 'down', a: 'left', d: 'right' };
+
     const handleKeyDown = (e) => {
-      const keyMap = { w: 'up', s: 'down', a: 'left', d: 'right' };
       if (keyMap[e.key]) setInput({ [keyMap[e.key]]: true });
     };
     const handleKeyUp = (e) => {
-      const keyMap = { w: 'up', s: 'down', a: 'left', d: 'right' };
       if (keyMap[e.key]) setInput({ [keyMap[e.key]]: false });
     };
 
@@ -48,14 +49,39 @@ function KeyboardInput() {
   return null;
 }
 
-// --- App ---
-export default function App() {
+// --- Kamera podążająca za graczem ---
+function CameraFollowInline() {
   const players = useStore((s) => s.players);
   const me = useStore((s) => s.me);
 
-  // domyślny gracz jeśli backend jeszcze nie odpowiedział
+  useFrame(({ camera }) => {
+    const player = players.get(me);
+    if (!player) return;
+
+    camera.position.lerp(
+      { x: player.x, y: player.y + 5, z: player.z + 10 },
+      0.1
+    );
+    camera.lookAt(player.x, player.y + 1, player.z);
+  });
+
+  return null;
+}
+
+// --- App ---
+export default function App() {
+  const players = useStore((s) => s.players);
+
+  // dodaj domyślnego gracza, jeśli brak
   if (players.size === 0) {
-    const defaultPlayer = { id: 'me', x: 0, y: 0, z: 0, color: 'orange', isBoosted: false };
+    const defaultPlayer = {
+      id: 'me',
+      x: 0,
+      y: 0,
+      z: 0,
+      color: 'orange',
+      isBoosted: false,
+    };
     players.set(defaultPlayer.id, defaultPlayer);
   }
 
@@ -69,33 +95,16 @@ export default function App() {
         <directionalLight position={[10, 10, 10]} />
 
         <Floor />
+
         {[...players.values()].map((player) => (
           <Player key={player.id} state={player} />
         ))}
 
         <PlayerMovement />
-
-        {/* Kamera podążająca za graczem */}
-        <CameraFollowInline players={players} me={me} />
+        <CameraFollowInline />
       </Canvas>
 
       <KeyboardInput />
     </>
   );
-}
-
-// --- Kamera jako funkcja inline ---
-function CameraFollowInline({ players, me }) {
-  useFrame(({ camera }) => {
-    const player = players.get(me);
-    if (!player) return;
-
-    camera.position.lerp(
-      { x: player.x, y: player.y + 5, z: player.z + 10 },
-      0.1
-    );
-    camera.lookAt(player.x, player.y + 1, player.z);
-  });
-
-  return null;
 }
