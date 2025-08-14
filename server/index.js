@@ -1,9 +1,13 @@
 import { createServer } from "http";
 import { Server } from "socket.io";
 
-const PORT = process.env.PORT || 3001; // <- ważne, używamy PORT z Render
+const PORT = process.env.PORT || 3001;
 
-const httpServer = createServer(); // HTTP server
+const httpServer = createServer((req, res) => {
+  res.writeHead(200, { "Content-Type": "text/plain" });
+  res.end("Server działa\n");
+});
+
 const io = new Server(httpServer, { cors: { origin: "*" } });
 
 io.on("connection", (socket) => {
