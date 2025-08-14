@@ -1,6 +1,8 @@
 import { Server } from "socket.io";
 
-const io = new Server(3001, {
+const PORT = process.env.PORT || 3001; // Używa portu Render lub lokalnego 3001
+
+const io = new Server(PORT, {
   cors: {
     origin: "*",
   },
@@ -18,3 +20,5 @@ io.on("connection", (socket) => {
     socket.broadcast.emit("playerDisconnected", socket.id);
   });
 });
+
+console.log(`Server listening on port ${PORT}`);
