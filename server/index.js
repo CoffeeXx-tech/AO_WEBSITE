@@ -1,26 +1,39 @@
 import { createServer } from "http";
 import { Server } from "socket.io";
+import { nanoid } from "nanoid";
 
-const PORT = process.env.PORT || 3001;
-
-const httpServer = createServer((req, res) => {
-  res.writeHead(200, { "Content-Type": "text/plain" });
-  res.end("Server działa\n");
+const httpServer = createServer();
+const io = new Server(httpServer, {
+  cors: { origin: "*", methods: ["GET", "POST"] }, // pozwala na połączenia z dowolnego frontendu
 });
 
-const io = new Server(httpServer, { cors: { origin: "*" } });
+const TICK = 50; // 20 Hz
+const players = new Map();
 
 io.on("connection", (socket) => {
-  console.log("Nowy gracz podłączony:", socket.id);
+  const playerId = nanoid(8);
+  
+  // pozycja: +2 w prawo w zależności od liczby graczy
+  const xOffset = players.size * 2;
+  const player = { id: playerId, x: xOffset, y: 0, z: 0 };
+  players.set(playerId, player);
 
-  socket.on("playerMove", (data) => {
-    socket.broadcast.emit("playerMoved", { id: socket.id, ...data });
-  });
+  socket.emit("welcome", { id: playerId, snapshot: Array.from(players.values()) });
+  socket.broadcast.emit("player_joined", player);
 
   socket.on("disconnect", () => {
-    console.log("Gracz odłączony:", socket.id);
-    socket.broadcast.emit("playerDisconnected", socket.id);
+    players.delete(playerId);
+    socket.broadcast.emit("player_left", playerId);
+  });
+
+  socket.on("move", (pos) => {
+    const p = players.get(playerId);
+    if (!p) return;
+    p.x = pos.x;
+    p.y = pos.y;
+    p.z = pos.z;
+    io.emit("state", Array.from(players.values()));
   });
 });
 
-httpServer.listen(PORT, () => console.log(`Server listening on :${PORT}`));
+httpServer.listen(3001, () => console.log("Server listening on :3001"));

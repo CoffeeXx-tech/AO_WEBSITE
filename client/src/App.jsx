@@ -1,69 +1,43 @@
-import { Canvas } from '@react-three/fiber';
-import { useStore } from './store';
-import { useEffect } from 'react';
-import io from 'socket.io-client';
-
-// Socket.io
-const socket = io('http://localhost:3001');
-
-function Player({ state }) {
-  return (
-    <mesh position={[state.x, 0.5, state.z]}>
-      <boxGeometry args={[1, 1, 1]} />
-      <meshStandardMaterial color={state.color || 'orange'} />
-    </mesh>
-  );
-}
-
-function Floor() {
-  return (
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
-      <planeGeometry args={[50, 50]} />
-      <meshStandardMaterial color="green" />
-    </mesh>
-  );
-}
+import { Canvas } from "@react-three/fiber";
+import { useEffect, useState } from "react";
+import { io } from "socket.io-client";
+import Player from "./Player";
 
 export default function App() {
-  const players = useStore((s) => s.players);
-  const setPlayers = useStore((s) => s.setPlayers);
-  const setMe = useStore((s) => s.setMe);
+  const [socket, setSocket] = useState(null);
+  const [players, setPlayers] = useState([]);
+  const [myId, setMyId] = useState(null);
 
   useEffect(() => {
-    socket.on('welcome', ({ id, snapshot }) => {
-      setMe(id);
-      const updated = snapshot.map((p, index) => ({
-        ...p,
-        x: index * 2,
-        z: 0,
-        color: 'orange',
-      }));
-      setPlayers(updated);
+    const s = io("http://localhost:3001");
+    setSocket(s);
+
+    s.on("welcome", ({ id, snapshot }) => {
+      setMyId(id);
+      setPlayers(snapshot);
     });
 
-    socket.on('player_joined', ({ id }) => {
-      const newPlayer = { id, x: players.size * 2, z: 0, color: 'orange' };
-      setPlayers([...players.values(), newPlayer]);
+    s.on("player_joined", (player) => {
+      setPlayers((prev) => [...prev, player]);
     });
 
-    socket.on('player_left', ({ id }) => {
-      const filtered = [...players.values()].filter((p) => p.id !== id);
-      setPlayers(filtered);
+    s.on("player_left", (id) => {
+      setPlayers((prev) => prev.filter((p) => p.id !== id));
     });
-  }, [players, setPlayers, setMe]);
+
+    s.on("state", (state) => {
+      setPlayers(state);
+    });
+
+    return () => s.disconnect();
+  }, []);
 
   return (
-    <Canvas
-      style={{ width: '100vw', height: '100vh', display: 'block' }}
-      camera={{ position: [0, 10, 10], fov: 75 }}
-    >
-      <ambientLight intensity={0.5} />
-      <directionalLight position={[10, 10, 10]} />
-
-      <Floor />
-
-      {[...players.values()].map((player) => (
-        <Player key={player.id} state={player} />
+    <Canvas camera={{ position: [0, 5, 10], fov: 50 }}>
+      <ambientLight />
+      <pointLight position={[10, 10, 10]} />
+      {players.map((p) => (
+        <Player key={p.id} player={p} socket={socket} myId={myId} />
       ))}
     </Canvas>
   );

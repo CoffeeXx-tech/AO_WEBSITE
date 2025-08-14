@@ -3,7 +3,14 @@ import { Server } from 'socket.io';
 import { nanoid } from 'nanoid';
 
 const httpServer = createServer();
-const io = new Server(httpServer, { cors: { origin: '*' } });
+
+const io = new Server(httpServer, {
+  cors: {
+    origin: "https://ao-website-1.onrender.com", // Twój frontend
+    methods: ["GET", "POST"],
+    credentials: true
+  }
+});
 
 const TICK = 50; // 20 Hz
 const rooms = new Map();
