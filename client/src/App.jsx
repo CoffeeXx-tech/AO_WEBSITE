@@ -1,10 +1,9 @@
 // App.jsx
 import { Canvas, useFrame } from '@react-three/fiber';
 import { useStore } from './store';
-import PlayerMovement from './PlayerMovement';
 import { useEffect } from 'react';
+import PlayerMovement from './PlayerMovement';
 
-// --- Komponent gracza ---
 function Player({ state }) {
   return (
     <mesh position={[state.x, state.y + 1, state.z]}>
@@ -14,7 +13,6 @@ function Player({ state }) {
   );
 }
 
-// --- Podłoga ---
 function Floor() {
   return (
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
@@ -24,20 +22,18 @@ function Floor() {
   );
 }
 
-// --- Keyboard Input ---
 function KeyboardInput() {
   const setInput = useStore((s) => s.setInput);
 
   useEffect(() => {
-    const keyMap = { w: 'up', s: 'down', a: 'left', d: 'right' };
-
     const handleKeyDown = (e) => {
-      if (keyMap[e.key]) setInput({ [keyMap[e.key]]: true });
+      const map = { w: 'up', s: 'down', a: 'left', d: 'right', ':':'', 'ArrowUp':'up','ArrowDown':'down','ArrowLeft':'left','ArrowRight':'right',' ': 'jump' };
+      if (map[e.key]) setInput({ [map[e.key]]: true });
     };
     const handleKeyUp = (e) => {
-      if (keyMap[e.key]) setInput({ [keyMap[e.key]]: false });
+      const map = { w: 'up', s: 'down', a: 'left', d: 'right', 'ArrowUp':'up','ArrowDown':'down','ArrowLeft':'left','ArrowRight':'right',' ': 'jump' };
+      if (map[e.key]) setInput({ [map[e.key]]: false });
     };
-
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
     return () => {
@@ -49,62 +45,64 @@ function KeyboardInput() {
   return null;
 }
 
-// --- Kamera podążająca za graczem ---
-function CameraFollowInline() {
-  const players = useStore((s) => s.players);
-  const me = useStore((s) => s.me);
-
-  useFrame(({ camera }) => {
-    const player = players.get(me);
-    if (!player) return;
-
-    camera.position.lerp(
-      { x: player.x, y: player.y + 5, z: player.z + 10 },
-      0.1
-    );
-    camera.lookAt(player.x, player.y + 1, player.z);
-  });
-
-  return null;
-}
-
-// --- App ---
 export default function App() {
   const players = useStore((s) => s.players);
+  const me = useStore((s) => s.me);
+  const socket = useStore((s) => s.socket);
 
-  // dodaj domyślnego gracza, jeśli brak
-  if (players.size === 0) {
-    const defaultPlayer = {
-      id: 'me',
-      x: 0,
-      y: 0,
-      z: 0,
-      color: 'orange',
-      isBoosted: false,
+  useEffect(() => {
+    socket.on('welcome', ({ id, snapshot }) => {
+      useStore.getState().setMe(id);
+      useStore.getState().setPlayers(snapshot);
+    });
+
+    socket.on('player_joined', ({ id }) => {
+      useStore.getState().players.set(id, { id, x:0,y:0,z:0 });
+    });
+
+    socket.on('player_left', ({ id }) => {
+      useStore.getState().players.delete(id);
+    });
+
+    socket.on('state', (snapshot) => {
+      useStore.getState().setPlayers(snapshot);
+    });
+
+    return () => {
+      socket.off('welcome');
+      socket.off('player_joined');
+      socket.off('player_left');
+      socket.off('state');
     };
-    players.set(defaultPlayer.id, defaultPlayer);
-  }
+  }, [socket]);
 
   return (
     <>
-      <Canvas
-        style={{ width: '100vw', height: '100vh' }}
-        camera={{ position: [0, 5, 10], fov: 75 }}
-      >
+      <Canvas style={{ width: '100vw', height: '100vh' }} camera={{ position: [0, 5, 10], fov: 75 }}>
         <ambientLight intensity={0.5} />
         <directionalLight position={[10, 10, 10]} />
 
         <Floor />
-
-        {[...players.values()].map((player) => (
-          <Player key={player.id} state={player} />
+        {[...players.values()].map((p) => (
+          <Player key={p.id} state={p} />
         ))}
 
         <PlayerMovement />
-        <CameraFollowInline />
+
+        <CameraFollowInline players={players} me={me} />
       </Canvas>
 
       <KeyboardInput />
     </>
   );
+}
+
+function CameraFollowInline({ players, me }) {
+  useFrame(({ camera }) => {
+    const player = players.get(me);
+    if (!player) return;
+    camera.position.lerp({ x: player.x, y: player.y + 5, z: player.z + 10 }, 0.1);
+    camera.lookAt(player.x, player.y + 1, player.z);
+  });
+  return null;
 }
