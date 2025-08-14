@@ -2,17 +2,22 @@
 import { Canvas, useFrame } from '@react-three/fiber';
 import { useStore } from './store';
 import { useEffect } from 'react';
-import PlayerMovement from './PlayerMovement';
+import io from 'socket.io-client';
 
+// --- Socket.io ---
+const socket = io('http://localhost:3001'); // Twój serwer
+
+// --- Komponent gracza ---
 function Player({ state }) {
   return (
-    <mesh position={[state.x, state.y + 1, state.z]}>
-      <boxGeometry args={[1, 2, 1]} />
+    <mesh position={[state.x, 0.5, state.z]}>
+      <boxGeometry args={[1, 1, 1]} />
       <meshStandardMaterial color={state.color || 'orange'} />
     </mesh>
   );
 }
 
+// --- Podłoga ---
 function Floor() {
   return (
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
@@ -22,18 +27,20 @@ function Floor() {
   );
 }
 
+// --- Keyboard Input ---
 function KeyboardInput() {
   const setInput = useStore((s) => s.setInput);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
-      const map = { w: 'up', s: 'down', a: 'left', d: 'right', ':':'', 'ArrowUp':'up','ArrowDown':'down','ArrowLeft':'left','ArrowRight':'right',' ': 'jump' };
-      if (map[e.key]) setInput({ [map[e.key]]: true });
+      const keyMap = { w: 'up', s: 'down', a: 'left', d: 'right' };
+      if (keyMap[e.key]) setInput({ [keyMap[e.key]]: true });
     };
     const handleKeyUp = (e) => {
-      const map = { w: 'up', s: 'down', a: 'left', d: 'right', 'ArrowUp':'up','ArrowDown':'down','ArrowLeft':'left','ArrowRight':'right',' ': 'jump' };
-      if (map[e.key]) setInput({ [map[e.key]]: false });
+      const keyMap = { w: 'up', s: 'down', a: 'left', d: 'right' };
+      if (keyMap[e.key]) setInput({ [keyMap[e.key]]: false });
     };
+
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
     return () => {
@@ -45,64 +52,51 @@ function KeyboardInput() {
   return null;
 }
 
+// --- App ---
 export default function App() {
   const players = useStore((s) => s.players);
+  const setPlayers = useStore((s) => s.setPlayers);
   const me = useStore((s) => s.me);
-  const socket = useStore((s) => s.socket);
+  const setMe = useStore((s) => s.setMe);
 
   useEffect(() => {
     socket.on('welcome', ({ id, snapshot }) => {
-      useStore.getState().setMe(id);
-      useStore.getState().setPlayers(snapshot);
+      setMe(id);
+
+      // ustawiamy pozycje wszystkich graczy
+      const updated = snapshot.map((p, index) => ({
+        ...p,
+        x: index * 2, // każdy kolejny gracz +2 w prawo
+        color: 'orange',
+      }));
+      setPlayers(updated);
     });
 
     socket.on('player_joined', ({ id }) => {
-      useStore.getState().players.set(id, { id, x:0,y:0,z:0 });
+      const newPlayer = { id, x: players.size * 2, z: 0, color: 'orange' };
+      setPlayers([...players.values(), newPlayer]);
     });
 
     socket.on('player_left', ({ id }) => {
-      useStore.getState().players.delete(id);
+      const filtered = [...players.values()].filter((p) => p.id !== id);
+      setPlayers(filtered);
     });
-
-    socket.on('state', (snapshot) => {
-      useStore.getState().setPlayers(snapshot);
-    });
-
-    return () => {
-      socket.off('welcome');
-      socket.off('player_joined');
-      socket.off('player_left');
-      socket.off('state');
-    };
-  }, [socket]);
+  }, [players, setPlayers, setMe]);
 
   return (
     <>
-      <Canvas style={{ width: '100vw', height: '100vh' }} camera={{ position: [0, 5, 10], fov: 75 }}>
+      <Canvas camera={{ position: [0, 10, 10], fov: 75 }}>
         <ambientLight intensity={0.5} />
         <directionalLight position={[10, 10, 10]} />
 
         <Floor />
-        {[...players.values()].map((p) => (
-          <Player key={p.id} state={p} />
+
+        {[...players.values()].map((player) => (
+          <Player key={player.id} state={player} />
         ))}
-
-        <PlayerMovement />
-
-        <CameraFollowInline players={players} me={me} />
       </Canvas>
 
       <KeyboardInput />
     </>
   );
-}
-
-function CameraFollowInline({ players, me }) {
-  useFrame(({ camera }) => {
-    const player = players.get(me);
-    if (!player) return;
-    camera.position.lerp({ x: player.x, y: player.y + 5, z: player.z + 10 }, 0.1);
-    camera.lookAt(player.x, player.y + 1, player.z);
-  });
-  return null;
 }
