@@ -8,84 +8,86 @@ export const useStore = create((set, get) => {
   const socket = io('https://ao-website.onrender.com');
 
   socket.on('welcome', ({ id, snapshot }) => {
-    set({ 
-      me: id, 
-      players: new Map(snapshot.map(p => [
-        p.id, 
-        { ...p, spellPoints: 0, currentSpell: null, isBoosted: false } // dodajemy spellPoints, currentSpell, isBoosted
-      ])) 
-    })
+    // Twój własny gracz
+    const mePlayer = { id, x:0, y:0, z:0, yaw:0, spellPoints:0, currentSpell:null, isBoosted:false }
+    
+    // Łączymy snapshot z serwera z własnym graczem
+    const allPlayers = new Map([
+      ...snapshot.map(p => [p.id, { ...p, spellPoints:0, currentSpell:null, isBoosted:false }]),
+      [id, mePlayer]
+    ])
+
+    set({ me: id, players: allPlayers })
   })
 
   socket.on('player_joined', ({ id }) => {
     set(state => {
       const players = new Map(state.players)
-      players.set(id, { id, x:0, y:0, z:0, yaw:0, spellPoints: 0, currentSpell: null, isBoosted: false })
+      players.set(id, { id, x:0, y:0, z:0, yaw:0, spellPoints:0, currentSpell:null, isBoosted:false })
       return { players }
     })
   })
 
   socket.on('player_left', ({ id }) => {
     set(state => {
-      const players = new Map(state.players);
-      players.delete(id);
-      return { players };
+      const players = new Map(state.players)
+      players.delete(id)
+      return { players }
     })
   })
 
   socket.on('state', (playersArray) => {
-    set({ players: new Map(playersArray.map(p => [p.id, { ...p, spellPoints: p.spellPoints || 0, currentSpell: p.currentSpell || null, isBoosted: p.isBoosted || false }])) })
+    set({ 
+      players: new Map(playersArray.map(p => [
+        p.id, 
+        { ...p, spellPoints: p.spellPoints || 0, currentSpell: p.currentSpell || null, isBoosted: p.isBoosted || false }
+      ])) 
+    })
   })
 
   // Automatyczne ładowanie spellPoints co sekundę (dla siebie)
-
-setInterval(() => {
-  set(state => {
-    if (state.spellPoints < 10) {
-      const newPoints = state.spellPoints + 1;
-      let newSpell = state.currentSpell;
-      // Losujemy zaklęcie tylko jeśli dopiero osiągnięto max
-      if (newPoints >= 10 && !state.currentSpell) {
-        const spells = ['boost', 'fog', 'shield'];
-        newSpell = spells[Math.floor(Math.random() * spells.length)];
+  setInterval(() => {
+    set(state => {
+      if (state.spellPoints < 10) {
+        const newPoints = state.spellPoints + 1
+        let newSpell = state.currentSpell
+        if (newPoints >= 10 && !state.currentSpell) {
+          const spells = ['boost', 'fog', 'shield']
+          newSpell = spells[Math.floor(Math.random() * spells.length)]
+        }
+        return { spellPoints: Math.min(newPoints, 10), currentSpell: newSpell }
       }
-      return { spellPoints: Math.min(newPoints, 10), currentSpell: newSpell };
-    }
-    return {};
-  });
-}, 1000);
-
+      return {}
+    })
+  }, 1000)
 
   // Funkcja aktywująca boost
   const activateBoost = (playerId) => {
     set(state => {
-      const players = new Map(state.players);
-      const p = players.get(playerId);
-      if (!p || p.spellPoints < 10) return { players };
+      const players = new Map(state.players)
+      const p = players.get(playerId)
+      if (!p || state.spellPoints < 10) return { players }
 
-      p.isBoosted = true;
-      p.spellPoints = 0;
-      p.currentSpell = null;
+      p.isBoosted = true
+      return { players, spellPoints:0, currentSpell:null }
+    })
 
-      setTimeout(() => {
-        set(state2 => {
-          const players2 = new Map(state2.players);
-          const p2 = players2.get(playerId);
-          if (p2) p2.isBoosted = false;
-          return { players: players2 };
-        });
-      }, BOOST_DURATION);
-
-      return { players };
-    });
+    setTimeout(() => {
+      set(state2 => {
+        const players2 = new Map(state2.players)
+        const p2 = players2.get(get().me)
+        if (p2) p2.isBoosted = false
+        return { players: players2 }
+      })
+    }, BOOST_DURATION)
   }
 
   return {
     me: null,
     players: new Map(),
     input: {},
-    spellPoints: 0,       // dla siebie
-    currentSpell: null,    // dla siebie
+    spellPoints:0,
+    currentSpell:null,
     setInput: (partial) => set(state => ({ input: { ...state.input, ...partial } })),
     setSpellPoints: (points) => set({ spellPoints: points }),
     setCurrentSpell: (spell) => set({ currentSpell: spell }),
