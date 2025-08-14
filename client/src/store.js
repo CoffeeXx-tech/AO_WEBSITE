@@ -1,22 +1,26 @@
-// store.js
 import { create } from 'zustand';
-import { io } from 'socket.io-client';
 
-const socket = io('http://localhost:3001'); // zmień jeśli serwer jest gdzie indziej
-
-export const useStore = create((set, get) => ({
+export const useStore = create((set) => ({
   me: null,
   players: new Map(),
-  input: {},
-  socket,
-  setInput: (input) => {
-    set({ input: { ...get().input, ...input } });
-    if (get().me) socket.emit('input', input);
-  },
+  input: { up: 0, down: 0, left: 0, right: 0 },
+  
   setMe: (id) => set({ me: id }),
-  setPlayers: (playersArray) => {
-    const map = new Map();
-    playersArray.forEach((p) => map.set(p.id, p));
-    set({ players: map });
-  },
+  
+  setPlayers: (newPlayers) =>
+    set((state) => {
+      const map = new Map(state.players);
+      newPlayers.forEach((p) => map.set(p.id, p));
+      return { players: map };
+    }),
+  
+  setPlayer: (id, player) =>
+    set((state) => {
+      const map = new Map(state.players);
+      map.set(id, player);
+      return { players: map };
+    }),
+  
+  setInput: (newInput) =>
+    set((state) => ({ input: { ...state.input, ...newInput } })),
 }));
