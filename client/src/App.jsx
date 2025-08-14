@@ -1,13 +1,11 @@
-// App.jsx
-import { Canvas, useFrame } from '@react-three/fiber';
+import { Canvas } from '@react-three/fiber';
 import { useStore } from './store';
 import { useEffect } from 'react';
 import io from 'socket.io-client';
 
-// --- Socket.io ---
-const socket = io('http://localhost:3001'); // Twój serwer
+// Socket.io
+const socket = io('http://localhost:3001');
 
-// --- Komponent gracza ---
 function Player({ state }) {
   return (
     <mesh position={[state.x, 0.5, state.z]}>
@@ -17,7 +15,6 @@ function Player({ state }) {
   );
 }
 
-// --- Podłoga ---
 function Floor() {
   return (
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
@@ -27,46 +24,18 @@ function Floor() {
   );
 }
 
-// --- Keyboard Input ---
-function KeyboardInput() {
-  const setInput = useStore((s) => s.setInput);
-
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      const keyMap = { w: 'up', s: 'down', a: 'left', d: 'right' };
-      if (keyMap[e.key]) setInput({ [keyMap[e.key]]: true });
-    };
-    const handleKeyUp = (e) => {
-      const keyMap = { w: 'up', s: 'down', a: 'left', d: 'right' };
-      if (keyMap[e.key]) setInput({ [keyMap[e.key]]: false });
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', handleKeyUp);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('keyup', handleKeyUp);
-    };
-  }, [setInput]);
-
-  return null;
-}
-
-// --- App ---
 export default function App() {
   const players = useStore((s) => s.players);
   const setPlayers = useStore((s) => s.setPlayers);
-  const me = useStore((s) => s.me);
   const setMe = useStore((s) => s.setMe);
 
   useEffect(() => {
     socket.on('welcome', ({ id, snapshot }) => {
       setMe(id);
-
-      // ustawiamy pozycje wszystkich graczy
       const updated = snapshot.map((p, index) => ({
         ...p,
-        x: index * 2, // każdy kolejny gracz +2 w prawo
+        x: index * 2,
+        z: 0,
         color: 'orange',
       }));
       setPlayers(updated);
@@ -84,19 +53,18 @@ export default function App() {
   }, [players, setPlayers, setMe]);
 
   return (
-    <>
-      <Canvas camera={{ position: [0, 10, 10], fov: 75 }}>
-        <ambientLight intensity={0.5} />
-        <directionalLight position={[10, 10, 10]} />
+    <Canvas
+      style={{ width: '100vw', height: '100vh', display: 'block' }}
+      camera={{ position: [0, 10, 10], fov: 75 }}
+    >
+      <ambientLight intensity={0.5} />
+      <directionalLight position={[10, 10, 10]} />
 
-        <Floor />
+      <Floor />
 
-        {[...players.values()].map((player) => (
-          <Player key={player.id} state={player} />
-        ))}
-      </Canvas>
-
-      <KeyboardInput />
-    </>
+      {[...players.values()].map((player) => (
+        <Player key={player.id} state={player} />
+      ))}
+    </Canvas>
   );
 }
