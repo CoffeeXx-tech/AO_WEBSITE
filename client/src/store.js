@@ -5,7 +5,7 @@ const BOOST_DURATION = 5000; // 5 sekund
 const BOOST_MULTIPLIER = 2;  // przyspieszenie x2
 
 export const useStore = create((set, get) => {
-  const socket = io('http://localhost:3001');
+  const socket = io('https://ao-website.onrender.com');
 
   socket.on('welcome', ({ id, snapshot }) => {
     set({ 
